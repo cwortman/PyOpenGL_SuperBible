@@ -1,9 +1,8 @@
 """
-PyOpenGL OpenGL SuperBible Chapter 3 Interface Blocks
+PyOpenGL OpenGL SuperBible Chapter 2 Using Shaders
 
-Passing interface blocks between shaders to draw a moving triangle on
-a color changing background with movement and color defined outside of
-the shaders.
+Compiles vertex and fragment shaders and displays a single point in the
+center of the screen with a color changing background.
 
 Author: Chase Wortman
 """
@@ -47,46 +46,20 @@ class MainWidget(QOpenGLWidget):
         vertex_shader = shaders.compileShader("""
         #version 440 core
 
-        // 'offset' and 'color' are input vertex attributes
-        layout (location = 0) in vec4 offset;
-        layout (location = 1) in vec4 color;
-
-        // Declare VS_OUT as an output interface block
-        out VS_OUT
-        {
-            vec4 color; // Send color to the next stage
-        } vs_out;
-
         void main(void)
         {
-            const vec4 vertices[3] = vec4[3](vec4(0.25, -0.25, 0.5, 1.0),
-                                         vec4(-0.25, -0.25, 0.5, 1.0),
-                                         vec4(0.25, 0.25, 0.5, 1.0));
-
-            // Add 'offset' to our hard-coded vertex position
-            gl_Position = vertices[gl_VertexID] + offset;
-
-            // Output a fixed value for vs_color
-            vs_out.color = color;
+            gl_Position = vec4(0.0, 0.0, 0.5, 1.0);
         }
         """, GL_VERTEX_SHADER)
         # Define fragment shader
         fragment_shader = shaders.compileShader("""
         #version 440 core
 
-        // Declare VS_OUT as an input interface block
-        in VS_OUT
-        {
-            vec4 color; // color from the previous stage
-        } fs_in;
-
-        // Output to the framebuffer
         out vec4 color;
 
         void main(void)
         {
-            // Simply assign the color we were given by the vertex shader to our output
-            color = fs_in.color;
+            color = vec4(0.0, 0.8, 1.0, 1.0);
         }
         """, GL_FRAGMENT_SHADER)
         # Compile shaders into program
@@ -98,19 +71,16 @@ class MainWidget(QOpenGLWidget):
     def paintGL(self):
         # Get time in seconds since start
         time_now = time.time() - self.start_time
-        # Define float arrays for background color, offset, and triangle color
+        # Define float array for background color
         bg_color = np.array([np.sin(time_now) * 0.5 + 0.5, np.cos(time_now) * 0.5 + 0.5, 0.0, 1.0], 'f')
-        offset = np.array([np.sin(time_now) * 0.5, np.cos(time_now) * 0.6, 0.0, 0.0], 'f')
-        color = np.array([0.0, 0.0, 0.0, 0.0], 'f')
         # Set background color
         glClearBufferfv(GL_COLOR, 0, bg_color)
         # Use program for rendering
         glUseProgram(self.program)
-        # Pass arrays to shader attributes
-        glVertexAttrib4fv(0, offset)
-        glVertexAttrib4fv(1, color)
         # Draw triangle from vertices in the vertex shader
-        glDrawArrays(GL_TRIANGLES, 0, 3)
+        glDrawArrays(GL_POINTS, 0, 1)
+        # Increase point size
+        glPointSize(40.0)
 
 
 class MainWindow(QMainWindow):
