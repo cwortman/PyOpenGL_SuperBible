@@ -1,8 +1,9 @@
 """
-PyOpenGL OpenGL SuperBible Chapter 3 Passing Data
+PyOpenGL OpenGL SuperBible Chapter 3 Geometry Shaders
 
-Passing data between shaders to draw a moving triangle on a color
-changing background with movement and color defined outside of the shaders.
+Geometry shader changes tessellated triangle into points while continuing
+to pass color through from vertex shader to fragment shaderto draw only the
+points of a moving tessellated triangle on a color changing background.
 
 Author: Chase Wortman
 """
@@ -44,13 +45,13 @@ class MainWidget(QOpenGLWidget):
     def initializeGL(self):
         # Define vertex shader
         vertex_shader = shaders.compileShader("""
-        #version 440 core
+        #version 440
 
         // 'offset' and 'color' are input vertex attributes
         layout(location = 0) in vec4 offset;
         layout(location = 1) in vec4 color;
 
-        // 'vs_color' is an output that will be sent to the next stage
+        // 'vs_color' is an output that will be sent to the tessellation control shader
         out vec4 vs_color;
 
         void main(void)
@@ -66,26 +67,108 @@ class MainWidget(QOpenGLWidget):
             vs_color = color;
         }
         """, GL_VERTEX_SHADER)
+        # Define tessellation control shader
+        tess_control_shader = shaders.compileShader("""
+        #version 440
+
+        layout(vertices = 3) out;
+
+        // Input from vertex shader in array form
+        in vec4 vs_color[];
+
+        // Output to the tessellation evaluation shader in patch form
+        patch out vec4 vc_color;
+
+        void main(void)
+        {
+            // Only if I am invocation 0...
+            if (gl_InvocationID == 0)
+            {
+                gl_TessLevelInner[0] = 5.0;
+                gl_TessLevelOuter[0] = 5.0;
+                gl_TessLevelOuter[1] = 5.0;
+                gl_TessLevelOuter[2] = 5.0;
+            }
+
+            // Everybody copies their input to their output
+            gl_out[gl_InvocationID].gl_Position = gl_in[gl_InvocationID].gl_Position;
+
+            // Pass color from vertex shader to tessellation evaluation shader
+            vc_color = vs_color[gl_InvocationID];
+        }
+        """, GL_TESS_CONTROL_SHADER)
+        # Define tessellation evaluation shader
+        tess_eval_shader = shaders.compileShader("""
+        #version 440
+
+        layout(triangles, equal_spacing, cw) in;
+
+        // Input from tessellation control shader in patch form
+        patch in vec4 vc_color;
+
+        // Output to geometry shader
+        out vec4 ve_color;
+
+        void main(void)
+        {
+            gl_Position = (gl_TessCoord.x * gl_in[0].gl_Position +
+                           gl_TessCoord.y * gl_in[1].gl_Position +
+                           gl_TessCoord.z * gl_in[2].gl_Position);
+
+            // Pass color from tessellation control shader to fragment shader
+            ve_color = vc_color;
+        }
+        """, GL_TESS_EVALUATION_SHADER)
+        # Define geometry shader
+        geometry_shader = shaders.compileShader("""
+        #version 440
+
+        layout(triangles) in;
+        layout(points, max_vertices = 3) out;
+
+        // Input from tessellation evaluation shader in array form
+        in vec4 ve_color[];
+
+        // Output to fragment shader
+        out vec4 gs_color;
+
+        void main(void)
+        {
+            int i;
+
+            for (i = 0; i < gl_in.length(); i++)
+            {
+            gs_color = ve_color[i];
+            gl_Position = gl_in[i].gl_Position;
+            EmitVertex();
+            }
+        }
+        """, GL_GEOMETRY_SHADER)
+
         # Define fragment shader
         fragment_shader = shaders.compileShader("""
-        #version 440 core
+        #version 440
 
-        // Input from the vertex shader
-        in vec4 vs_color;
+        // Input from geometry shader
+        in vec4 gs_color;
 
         // Output to the framebuffer
         out vec4 color;
 
         void main(void)
         {
-            // Simply assign the color we were given by the vertex shader to our output
-            color = vs_color;
+            // Simply assign the color we were given by the geometry shader to our output
+            color = gs_color;
         }
         """, GL_FRAGMENT_SHADER)
         # Compile shaders into program
-        self.program = shaders.compileProgram(vertex_shader, fragment_shader)
+        self.program = shaders.compileProgram(vertex_shader, tess_control_shader, tess_eval_shader, geometry_shader,
+                                              fragment_shader)
         # Cleanup shaders since they aren't needed anymore
         shaders.glDeleteShader(vertex_shader)
+        shaders.glDeleteShader(tess_control_shader)
+        shaders.glDeleteShader(tess_eval_shader)
+        shaders.glDeleteShader(geometry_shader)
         shaders.glDeleteShader(fragment_shader)
 
     def paintGL(self):
@@ -102,8 +185,9 @@ class MainWidget(QOpenGLWidget):
         # Pass arrays to shader attributes
         glVertexAttrib4fv(0, offset)
         glVertexAttrib4fv(1, color)
-        # Draw triangle from vertices in the vertex shader
-        glDrawArrays(GL_TRIANGLES, 0, 3)
+        # Draw patches from vertices in the vertex shader
+        glDrawArrays(GL_PATCHES, 0, 3)
+        glPointSize(5)
 
 
 class MainWindow(QMainWindow):

@@ -1,8 +1,8 @@
 """
-PyOpenGL OpenGL SuperBible Chapter 3 Vertex Attributes
+PyOpenGL OpenGL SuperBible Chapter 3 Fragment Shaders 2
 
-Passes in a time based offset array to the vertex shader
-to draw a moving triangle on a color changing background.
+Vertex shader sends color to fragment shader for each vertex of a moving
+triangle on a color changing background.
 
 Author: Chase Wortman
 """
@@ -44,32 +44,44 @@ class MainWidget(QOpenGLWidget):
     def initializeGL(self):
         # Define vertex shader
         vertex_shader = shaders.compileShader("""
-        #version 440 core
+        #version 440
 
-        // 'offset' is an input vertex attribute
+        // 'offset' and 'color' are input vertex attributes
         layout(location = 0) in vec4 offset;
+
+        // 'vs_color' is an output that will be sent to the next shader stage
+        out vec4 vs_color;
 
         void main(void)
         {
-            // Declare a hard-coded array of positions
             const vec4 vertices[3] = vec4[3](vec4(0.25, -0.25, 0.5, 1.0),
                                          vec4(-0.25, -0.25, 0.5, 1.0),
                                          vec4(0.25, 0.25, 0.5, 1.0));
 
+            const vec4 colors[3] = vec4[3](vec4(1.0, 0.0, 0.0, 1.0),
+                                           vec4(0.0, 1.0, 0.0, 1.0),
+                                           vec4(0.0, 0.0, 1.0, 0.0));
+
             // Add 'offset' to our hard-coded vertex position
             gl_Position = vertices[gl_VertexID] + offset;
+
+            // Output a fixed value for vs_color
+            vs_color = colors[gl_VertexID];
         }
         """, GL_VERTEX_SHADER)
         # Define fragment shader
         fragment_shader = shaders.compileShader("""
-        #version 440 core
+        #version 440
+
+        // 'vs_color' is the color produces by the vertex shader
+        in vec4 vs_color;
 
         // Output to the framebuffer
         out vec4 color;
 
         void main(void)
         {
-            color = vec4(0.0, 0.8, 1.0, 1.0);
+            color = vs_color;
         }
         """, GL_FRAGMENT_SHADER)
         # Compile shaders into program
@@ -81,7 +93,7 @@ class MainWidget(QOpenGLWidget):
     def paintGL(self):
         # Get time in seconds since start
         time_now = time.time() - self.start_time
-        # Define float arrays for background color and offset
+        # Define float arrays for background color, offset, and triangle color
         bg_color = np.array([np.sin(time_now) * 0.5 + 0.5, np.cos(time_now) * 0.5 + 0.5, 0.0, 1.0], 'f')
         offset = np.array([np.sin(time_now) * 0.5, np.cos(time_now) * 0.6, 0.0, 0.0], 'f')
         # Set background color
@@ -90,7 +102,7 @@ class MainWidget(QOpenGLWidget):
         glUseProgram(self.program)
         # Pass arrays to shader attributes
         glVertexAttrib4fv(0, offset)
-        # Draw triangle from vertices in the vertex shader
+        # Draw triangles from vertices in the vertex shader
         glDrawArrays(GL_TRIANGLES, 0, 3)
 
 

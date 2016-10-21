@@ -48,8 +48,8 @@ class MainWidget(QOpenGLWidget):
         #version 440 core
 
         // 'offset' and 'color' are input vertex attributes
-        layout (location = 0) in vec4 offset;
-        layout (location = 1) in vec4 color;
+        layout(location = 0) in vec4 offset;
+        layout(location = 1) in vec4 color;
 
         // Declare VS_OUT as an output interface block
         out VS_OUT

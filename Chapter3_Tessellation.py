@@ -3,7 +3,7 @@ PyOpenGL OpenGL SuperBible Chapter 3 Tessellation
 
 Tessellation control and tessellation evaulation shaders
 that pass variables through from vertex shader to fragment shader
-to draw a moving tessellated triangle on the color changing background.
+to draw a moving tessellated triangle on a color changing background.
 
 Author: Chase Wortman
 """
