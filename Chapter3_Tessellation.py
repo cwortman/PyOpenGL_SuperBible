@@ -1,5 +1,5 @@
 """
-PyOpenGL OpenGL SuperBible Chapter 3 Interface Blocks
+PyOpenGL OpenGL SuperBible Chapter 3 Tessellation
 
 Author: Chase Wortman
 """
